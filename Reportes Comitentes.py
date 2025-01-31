@@ -26,35 +26,26 @@ from email.mime.base import MIMEBase
 from email import encoders
 import os.path
 import math
-import eikon as ek
-ek.set_app_key('46e757135590444b817e89a2b5d8af0ae013bd3b')
+#import eikon as ek
+#ek.set_app_key('46e757135590444b817e89a2b5d8af0ae013bd3b')
 import warnings
+from pathlib import Path
+
+
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="pandas.core.dtypes.cast")
-path=r"C:\Users\ldt\Documents\Agustin Ehrman\Reportes Comitentes (definitivo)"
-os.chdir(path)
 
-reporte= os.path.join(path,"Reportes\\")
-if not os.path.exists(reporte):
-    os.mkdir(reporte)
-
-path= r"C:\Users\ldt\Documents\Agustin Ehrman\Reportes Comitentes (definitivo)\Inputs"
-os.chdir(path)
-graficos= os.path.join(path,"Graficos\\")
-if not os.path.exists(graficos):
-    os.mkdir(graficos)
-    
-import shutil
+curr_path = Path.cwd()
+inputs_path = curr_path.joinpath('inputs')
+report_path = curr_path.joinpath("Reportes")
+graficos_path = curr_path.joinpath("Graficos")
 Date = str(date.today())
-dir = os.path.join(reporte, Date)
-dirG = os.path.join(graficos, Date)
-if os.path.exists(dir):
-    pass
-else:
-    os.mkdir(dir)
-if os.path.exists(dirG):
-    pass
-else:
-    os.mkdir(dirG)
+dir = report_path.joinpath(Date)
+dirG = graficos_path.joinpath(Date)
+
+for path in [report_path, graficos_path, dir, dirG]:
+    if not os.path.exists(path):
+        path.mkdir()
+
 today = datetime.today().strftime('%Y-%m-%d') #Fecha de hoy
 #Descargamos el CCL para poder dividir los precios de las especies que están en pesos.
 dolar= input('Inserte qué dolar quiere utilizar: 1 para MEP, 2 para CCL, o 3 si quiere ingresarlo a mano: ')
@@ -66,7 +57,7 @@ elif dolar== '2':
     CCL= (ggalba/ggal).iloc[0]*20
 elif dolar== '3':
     CCL = float(input('Ingrese el tipo de cambio que quiere utilizar: '))
-gara_raw= pd.read_excel("Administración de Títulos Valores.xls", header=1) #De acá voy a sacar la CATEGORÍA DE LAS ESPECIES, si son CEDEARS, ADRS, BONOS, Etc.
+gara_raw= pd.read_excel(inputs_path.joinpath("Administración de Títulos Valores.xls"), header=1) #De acá voy a sacar la CATEGORÍA DE LAS ESPECIES, si son CEDEARS, ADRS, BONOS, Etc.
 gara_raw= gara_raw.rename(columns={"Cód.":"Codigo",
                            "Categoría":"Categoria",
                            "Un.Precio":"Unidad_precio",
@@ -78,7 +69,7 @@ moneda= pd.DataFrame({"Codigo":[7000,8000,8700,9000,9002,10000,6000],
                       "Unidad_precio":[1,1,1,1,1,1,1]}) #Agrego las especies de moneda al de Gara para tenerlas clasificadas.
 categorias= pd.concat([gara,moneda], ignore_index=True) #Agrego las especies del tipo moneda ya categorizadas.
 
-exterior= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx", header=1) #Importo el excel que contiene información sobre las especies que son acciones del exterior, ya sea su sector, el RIC, etc. 
+exterior= pd.read_excel(inputs_path.joinpath('exterior_y_cedears_ACTUALIZADO.xlsx'), header=1) #Importo el excel que contiene información sobre las especies que son acciones del exterior, ya sea su sector, el RIC, etc.
 del(exterior["Sector_ingles"])
 exterior= exterior.rename(columns={'Nombre_Especie':'Nombre'})
 columns_to_replace = ['PE fwd', 'PBV', 'Dividend Yield', 'Close', 'Total Return 1Mo', 'Total Return 3Mo', 'Total Return 52Wk', '52Wk High', '52Wk Low','ROE','ROA','PS','PE','GEO','FundType']
@@ -90,7 +81,7 @@ exterior = exterior.reindex(columns=['Codigo','RIC','Nombre','Sector','Pais','PE
 exterior['ROE'] = exterior['ROE'].astype(float)
 exterior['ROA'] = exterior['ROA'].astype(float)
 
-cedears= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx",sheet_name="CEDEARS", header=1) #Hacemos lo mismo con esta sheet que contiene info. sobre CEDEARS, su RIC, sector, etc.
+cedears= pd.read_excel(inputs_path.joinpath('exterior_y_cedears_ACTUALIZADO.xlsx'),sheet_name="CEDEARS", header=1) #Hacemos lo mismo con esta sheet que contiene info. sobre CEDEARS, su RIC, sector, etc.
 cedears = cedears.reindex(columns=['Codigo','RIC EXTRANJERO','Nombre_Especie','Sector','Pais','PE','PE fwd','PBV','PS', 'Dividend Yield','ROE','ROA', 'Close', 'Total Return 1Mo', 'Total Return 3Mo', 'Total Return 52Wk', '52Wk High', '52Wk Low', 'GEO','FundType'])
 cedears= cedears.rename(columns={"Nombre_Especie":'Nombre', 'RIC EXTRANJERO':'RIC'})
 for column in columns_to_replace:
@@ -102,7 +93,7 @@ cedears['ROE'] = cedears['ROE'].astype(float)
 cedears['ROA'] = cedears['ROA'].astype(float)
 
 columns_to_replace = ['PE fwd', 'PBV', 'Dividend Yield', 'Close', 'Total Return 1Mo', 'Total Return 3Mo', 'Total Return 52Wk', '52Wk High', '52Wk Low','ROE','ROA','PS','PE']
-byma= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx",sheet_name="ACCIONES ARGENTINAS", header=0) 
+byma= pd.read_excel(inputs_path.joinpath('exterior_y_cedears_ACTUALIZADO.xlsx'),sheet_name="ACCIONES ARGENTINAS", header=0)
 byma= byma.reindex(columns=['Codigo','RIC','Nombre','Sector','Pais','PE','PE fwd','PBV','PS', 'Dividend Yield','ROE','ROA', 'Close', 'Total Return 1Mo', 'Total Return 3Mo', 'Total Return 52Wk', '52Wk High', '52Wk Low'])
 for column in columns_to_replace:
     byma[column]= byma[column].apply(lambda x: 0 if str(x).startswith('Unable') or str(x).startswith('Access') else x)
@@ -111,17 +102,8 @@ byma['ROE'] = byma['ROE'].astype(float)
 byma['ROA'] = byma['ROA'].astype(float)
 byma.dropna(inplace=True)
 
-general= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx", sheet_name= "GENERAL", header= 0)
-general= general[['Codigo','RIC','Nombre_eikon','Sector','Pais','PE','PE fwd','PBV','PS', 'Dividend Yield','ROE','ROA', 'Close', 'Total Return 1Mo', 'Total Return 3Mo', 'Total Return 52Wk', '52Wk High', '52Wk Low']]
-for column in columns_to_replace:
-    general[column]= general[column].apply(lambda x: 0 if str(x).startswith('Unable') or str(x).startswith('Access') else x)
-general[columns_to_replace] = general[columns_to_replace].replace([np.nan], 0)
-general= general.rename(columns={'Nombre_eikon':'Nombre'})
-general['ROE'] = general['ROE'].astype(float)
-general['ROA'] = general['ROA'].astype(float)
-general.dropna(inplace=True)
 
-info_especies= pd.concat([exterior, cedears, byma, general], ignore_index=True) #Recopilamos la informacion de las especies que son acciones aqui.
+info_especies= pd.concat([exterior, cedears, byma], ignore_index=True) #Recopilamos la informacion de las especies que son acciones aqui.
 info_especies.drop_duplicates(subset=['Codigo'], inplace=True)
 info_especies.fillna(0, inplace=True)
 
@@ -134,20 +116,43 @@ categorias= pd.concat([categorias, codigos_exterior],ignore_index=True) #Ahora t
 categorias.drop_duplicates(['Codigo'], inplace=True) #Hay especies que están dos veces cuándo cargo las de exterior, que el archivo de Gara ya tenía como ADR
 
 
-bonos_afuera= pd.read_excel('LISTA_BONOS_EXT.xlsx')
+bonos_afuera= pd.read_excel(inputs_path.joinpath('LISTA_BONOS_EXT.xlsx'))
 bonos_ext= bonos_afuera.Codigo.to_list()
-
+bonos_afuera.pop('Nombre')
 categorias= pd.concat([categorias,bonos_afuera], ignore_index=True)
 
 #Agregamos ahora la columna que va a distinguir si es acción de acá, de afuera, o si es un bono de acá, o de afuera. Las categorías anteriores van a servir para poder diferenciar las especies dentro de estas 4 grandes categorías.
-condiciones = [categorias["Categoria"].isin(["Acciones Privadas", "A.D.R. S (Acciones)","Acciones PYMES","Cupones Privados","Fondos de Inversion"]),
-               categorias["Categoria"].isin(["CEDEARS", "Exterior","Cupones Externos"]),
-               categorias["Categoria"].isin(["Titulos Publicos","Titulos de Deuda","Letras","Letras del Tesoro Nacional","Bonos Consolidacion","Bonos Externos","Obligaciones Negociables","Obligaciones Negociables PYME","Cupones Publicos", "Certificados de Participacion"]),
-               categorias["Categoria"] == "Moneda",
-               categorias["Categoria"] == "ONs del exterior"
-               ]
-valores = ["Renta Variable Local", "Renta Variable Extranjera", "Renta Fija Local", "Moneda", "Renta Fija Extranjera"]
-categorias["Clasificacion"]= np.select(condiciones, valores, default=np.nan)
+# Definir un diccionario de mapeo de categorías a clasificaciones
+mapeo_clasificacion = {
+    "Acciones Privadas": "Acción Local",
+    "A.D.R. S (Acciones)": "Acción Local",
+    "Acciones PYMES": "Acción Local",
+    "Cupones Privados": "Acción Local",
+    "Fondos de Inversion": "Acción Local",
+
+    "CEDEARS": "Acción Exterior",
+    "Exterior": "Acción Exterior",
+    "Cupones Externos": "Acción Exterior",
+
+    "Titulos Publicos": "Bono Local",
+    "Titulos de Deuda": "Bono Local",
+    "Letras": "Bono Local",
+    "Letras del Tesoro Nacional": "Bono Local",
+    "Bonos Consolidacion": "Bono Local",
+    "Bonos Externos": "Bono Local",
+    "Obligaciones Negociables": "Bono Local",
+    "Obligaciones Negociables PYME": "Bono Local",
+    "Cupones Publicos": "Bono Local",
+    "Certificados de Participacion": "Bono Local",
+
+    "Moneda": "Moneda",
+
+    "ONs del exterior": "Bono Exterior"
+}
+
+# Mapear la columna 'Categoria' a 'Clasificacion'
+categorias["Clasificacion"] = categorias["Categoria"].map(mapeo_clasificacion).fillna("Otro")
+
 #Completamos algunas categorías, que son los fondos de inversión y redefinimos algunos valores, ya que en la categoría "Exterior" habían bonos u ONs de afuera, o los treasuries que estaban como titulos publicos en gara. 
 categorias.loc[(categorias["Clasificacion"]=="Acciones Exterior")&(categorias["Unidad_precio"]==100),'Clasificacion']= "Bonos Exterior"
 etfs= [5824, 7483, 7747, 8549, 8550, 8551, 8552, 8553, 8554, 8555, 8556, 8557, 41118, 41159, 41160, 41422, 41462, 41534, 41721, 41994, 47532, 47543, 47667, 47793, 47812, 47961, 48369, 48469, 48775, 49075, 49093, 49276, 49292, 49804, 49815, 49870, 49900, 90331, 90462, 90563, 90581, 90651, 90662, 90664, 90671, 90791, 90802, 90875, 90939,
@@ -162,7 +167,7 @@ categorias.loc[categorias['Codigo'].isin(corregir), 'Clasificacion'] = 'Renta Va
 categorias.loc[(categorias['Categoria'] == 'Fondos de Inversion')&(categorias['Clasificacion'] == 'ETFs'), 'Unidad_precio'] = 1
 #Cargamos las tenencias de los clientes
 categorias.drop_duplicates(['Codigo'], inplace=True)
-tenencia_raw= pd.read_excel("TVAFECHA.xls")
+tenencia_raw= pd.read_excel(inputs_path.joinpath("TVAFECHA.xls"))
 tenencia_raw=tenencia_raw.rename(columns={"'Numero'":'Comitente',
                                   "'Tenencia'":'Tenencia',
                                   "'Nombre de la Especie'":'Especie',
@@ -198,7 +203,7 @@ categorias= pd.concat([categorias, opciones_categorizadas],ignore_index=True) #U
 tenencia_reportes.loc[:, "Codigo"] = tenencia_reportes["Codigo"].astype(str).str.replace("B", "000")
 tenencia_reportes["Codigo"]=tenencia_reportes["Codigo"].astype(int)
 #Estaban como string, por las opciones que contienen la B, ahora los paso a números para poder mergear con las categorías
-cuentas_afuera= pd.read_excel('cta fenix.xlsx')
+cuentas_afuera= pd.read_excel(inputs_path.joinpath('cta fenix.xlsx'))
 cuentas_afuera= cuentas_afuera[['Account','Product','Description','Symbol / ID','ISIN','Quantity','Value ($)']]
 cuentas_afuera.columns= ['Comitente','Clasificacion','Nombre_Especie','RIC','ISIN','Tenencia','Valorizada']
 cuentas_afuera['Clasificacion'] = cuentas_afuera['Clasificacion'].replace('Cash & Equivalents', 'Moneda')
@@ -253,7 +258,7 @@ tenencia_reportes= pd.concat([tenencia_reportes, cuentas_afuera])
 tenencia_reportes.loc[tenencia_reportes['Sector'] == 'Indice', 'Clasificacion'] = 'ETFs'
 
 #Importamos el excel que realiza los ratios financieros para las acciones argentinas
-ratios_arg= pd.read_excel("Ratios_rawdata.xlsx")
+ratios_arg= pd.read_excel(inputs_path.joinpath("Ratios_rawdata.xlsx"))
 ratios_arg= ratios_arg.rename(columns={"ticker":"RIC"})
 ratios_arg['RIC'] = ratios_arg['RIC'].str.replace('.BA', 'm.BA')
 for index, row in ratios_arg.iterrows():
@@ -272,7 +277,7 @@ for index, row in ratios_arg.iterrows():
 negativas= tenencia_reportes[tenencia_reportes["Tenencia"]<=0] #Me guardo las que tienen tenencia negativa
 tenencia_reportes= tenencia_reportes[tenencia_reportes["Tenencia"]>0] #Quito las tenencias negativas
 #%%
-alexbrown= pd.read_csv(f'3454_AlexBrown.csv')
+alexbrown= pd.read_csv(inputs_path.joinpath('3454_AlexBrown.csv'))
 alexbrown['Valorizada'] = alexbrown['Current Value'].str.replace('$', '').str.replace(',', '').astype(float)
 mapping = {
     'Cash & Cash Alternatives': 'Moneda',
@@ -304,8 +309,8 @@ tenencia_reportes= pd.concat([tenencia_reportes,alexbrown])
 #Ya tenemos todo el dataframe categorizado, falta unir las acciones con sus características (dataframes "cedears" y "exterior")
 #Vamos a comenzar el armado de las imágenes para el reporte. 
 #Importamos la informacion de los bonos del exterior y los bonos de argentina
-bonos_exterior= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx",sheet_name='BONOS EXTRANJEROS', header=0)
-bonos_locales= pd.read_excel("exterior_y_cedears_ACTUALIZADO.xlsx",sheet_name='BONOS LOCALES', header=0)
+bonos_exterior= pd.read_excel(inputs_path.joinpath("exterior_y_cedears_ACTUALIZADO.xlsx"),sheet_name='BONOS EXTRANJEROS', header=0)
+bonos_locales= pd.read_excel(inputs_path.joinpath("exterior_y_cedears_ACTUALIZADO.xlsx"),sheet_name='BONOS LOCALES', header=0)
 comitentes = set(tenencia_reportes['Comitente'])
 comitentes = sorted(comitentes)
 
@@ -539,7 +544,7 @@ if muchas=='2':
                 ])
                 h=(len(tabla.index)+4.5)*cm
                 fig.update_layout(width=1000,height=h,margin={'l': 5, 'r': 5, 't': 5, 'b': 5})
-                
+
                 fig.write_image(f'{dirG}\\tabla rendimientos {clase} - {cuenta_s}.png',scale=1)
             
             else:
@@ -1567,7 +1572,7 @@ if muchas=='2':
         
         
         '''#Imagen
-        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
         #Titulo
         pdf.setTitle('Reporte comitente')
         pdf.setFillColor('Black')
@@ -1614,7 +1619,7 @@ if muchas=='2':
         pdf.setFillColor('Black')
         pdf.setFont('Helvetica-Bold',20)
         pdf.drawString(1*cm,27.2*cm,f'Tenencia Total {cuenta}')
-        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
         today = time.strftime("%d/%m/%Y")
         pdf.setFont('Helvetica',14)
@@ -1677,7 +1682,7 @@ if muchas=='2':
             pdf.setFillColor('Black')
             pdf.setFont('Helvetica-Bold',20)
             pdf.drawString(1*cm,27.2*cm,f'Tenencia Total - {clase}')
-            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
             pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
             
             filepath = f'{dirG}\\tabla tenencia {clase} - {cuenta}.png'
@@ -1716,7 +1721,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, f'Tenencia Total - {clase}')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 pdf.drawInlineImage(f'{dirG}\\torta {clase}-{cuenta}.png',1*cm, 25*cm-tortah*cm, width=19*cm,height= tortah*cm,preserveAspectRatio=True)
                 
@@ -1727,7 +1732,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, f'Tenencia Total - {clase}')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 pdf.drawInlineImage(f'{dirG}\\tabla tenencia {clase} - {cuenta}.png', 1*cm, 26*cm-compoh*cm, width=19*cm, height=compoh*cm, preserveAspectRatio=True)
                 pdf.drawImage(f'{dirG}\\torta {clase}-{cuenta}.png',(10.5-19/2)*cm, 24*cm-compoh*cm-1*tortah*cm, width=19*cm, height=tortah*cm, preserveAspectRatio=True)
@@ -1742,7 +1747,7 @@ if muchas=='2':
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Información Financiera - {clase}')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     filepath = f'{dirG}\\tabla info financiera {clase}- {cuenta}.png'
@@ -1772,7 +1777,7 @@ if muchas=='2':
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Información Financiera - {clase}')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         pdf.drawImage(f'{dirG}\\total info financiera {clase} - {cuenta}.png', 1*cm, 26*cm-1*generalh*cm, height=generalh*cm, width=19*cm, preserveAspectRatio=True, mask='auto', anchor='nw')
                         pdf.showPage()
@@ -1785,7 +1790,7 @@ if muchas=='2':
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Performance - {clase}')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     filepath= f'{dirG}\\performance {clase} - {cuenta}.png'
@@ -1807,7 +1812,7 @@ if muchas=='2':
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Rendimientos - {clase}')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         
                         filepath= f'{dirG}\\tabla rendimientos {clase} - {cuenta}.png'
@@ -1828,7 +1833,7 @@ if muchas=='2':
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Crecimiento - {clase}')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         
                         filepath= (f'{dirG}\\growth {clase} - {cuenta}.png')
@@ -1848,7 +1853,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 
                 pdf.setFillColor("Darkgreen")
@@ -1867,7 +1872,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 
                 pdf.setFillColor("Darkgreen")
@@ -1888,7 +1893,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 
                 pdf.setFillColor("Darkgreen")
@@ -1908,7 +1913,7 @@ if muchas=='2':
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Rendimientos - Renta Fija Local')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     filepath= f'{dirG}\\tabla rendimientos Renta Fija Local - {cuenta}.png'
@@ -1930,7 +1935,7 @@ if muchas=='2':
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 
                 pdf.drawString(1*cm,25.5*cm,'Resumen de Renta Fija Extranjera')
@@ -1948,7 +1953,7 @@ if muchas=='2':
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Rendimientos - Renta Fija Extranjera')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     filepath= f'{dirG}\\tabla rendimientos Renta Fija Extranjera - {cuenta}.png'
@@ -2211,7 +2216,7 @@ else:
             filename= f'{dirpprom}\HT{cuenta_str}.xls' 
     
             def process_fifo_operations(filename):  
-                codigos_exterior= pd.read_excel('exterior_y_cedears_ACTUALIZADO.xlsx', header=1).Codigo.tolist()
+                codigos_exterior= pd.read_excel(inputs_path.joinpath('exterior_y_cedears_ACTUALIZADO.xlsx'), header=1).Codigo.tolist()
                 df = pd.read_excel(filename)
                 columns= ['Comitente','Codigo','Especie','Concepto','FechaLiq','FechaOp','Cpbte','Referencia','Cantidad','Precio','SaldoCajaValores']
                 df.columns= columns
@@ -3402,7 +3407,7 @@ else:
             
             
             '''#Imagen
-            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
             #Titulo
             pdf.setTitle('Reporte comitente')
             pdf.setFillColor('Black')
@@ -3449,7 +3454,7 @@ else:
             pdf.setFillColor('Black')
             pdf.setFont('Helvetica-Bold',20)
             pdf.drawString(1*cm,27.2*cm,f'Resumen de Tenencia {cuenta}')
-            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
             pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
             today = time.strftime("%d/%m/%Y")
             pdf.setFont('Helvetica',14)
@@ -3512,7 +3517,7 @@ else:
                 pdf.setFillColor('Black')
                 pdf.setFont('Helvetica-Bold',20)
                 pdf.drawString(1*cm,27.2*cm,f'Resumen de Tenencia {cuenta} - {clase}')
-                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                 
                 filepath = f'{dirG}\\tabla tenencia {clase} - {cuenta}.png'
@@ -3551,7 +3556,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Resumen de Tenencia {cuenta} - {clase}')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     pdf.drawInlineImage(f'{dirG}\\torta {clase}-{cuenta}.png',1*cm, 25*cm-tortah*cm, width=19*cm,height= tortah*cm,preserveAspectRatio=True)
                     
@@ -3562,7 +3567,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, f'Resumen de Tenencia {cuenta} - {clase}')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     pdf.drawInlineImage(f'{dirG}\\tabla tenencia {clase} - {cuenta}.png', 1*cm, 26*cm-compoh*cm, width=19*cm, height=compoh*cm, preserveAspectRatio=True)
                     pdf.drawImage(f'{dirG}\\torta {clase}-{cuenta}.png',(10.5-19/2)*cm, 25*cm-compoh*cm-1*tortah*cm, width=19*cm, height=tortah*cm, preserveAspectRatio=True)
@@ -3577,7 +3582,7 @@ else:
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Información Financiera - {clase}')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         
                         filepath = f'{dirG}\\tabla info financiera {clase}- {cuenta}.png'
@@ -3607,7 +3612,7 @@ else:
                             pdf.setFillColor('Black')
                             pdf.setFont('Helvetica-Bold',20)
                             pdf.drawString(1*cm,27.2*cm, f'Información Financiera - {clase}')
-                            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                             pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                             pdf.drawImage(f'{dirG}\\total info financiera {clase} - {cuenta}.png', 1*cm, 26*cm-1*generalh*cm, height=generalh*cm, width=19*cm, preserveAspectRatio=True, mask='auto', anchor='nw')
                             pdf.showPage()
@@ -3620,7 +3625,7 @@ else:
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Performance - {clase}')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         
                         filepath= f'{dirG}\\performance {clase} - {cuenta}.png'
@@ -3643,7 +3648,7 @@ else:
                                 pdf.setFillColor('Black')
                                 pdf.setFont('Helvetica-Bold',20)
                                 pdf.drawString(1*cm,27.2*cm, f'Rendimientos - {clase}')
-                                pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                                pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                                 pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                                 
                                 filepath= f'{dirG}\\tabla rendimientos {clase} - {cuenta}.png'
@@ -3666,7 +3671,7 @@ else:
                             pdf.setFillColor('Black')
                             pdf.setFont('Helvetica-Bold',20)
                             pdf.drawString(1*cm,27.2*cm, f'Crecimiento - {clase}')
-                            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                             pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                             
                             filepath= (f'{dirG}\\growth {clase} - {cuenta}.png')
@@ -3686,7 +3691,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     pdf.setFillColor("Darkgreen")
@@ -3705,7 +3710,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     pdf.setFillColor("Darkgreen")
@@ -3725,7 +3730,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     pdf.setFillColor("Darkgreen")
@@ -3746,7 +3751,7 @@ else:
                             pdf.setFillColor('Black')
                             pdf.setFont('Helvetica-Bold',20)
                             pdf.drawString(1*cm,27.2*cm, f'Rendimientos - Renta Fija Local')
-                            pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                            pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                             pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                             
                             filepath= f'{dirG}\\tabla rendimientos Renta Fija Local - {cuenta}.png'
@@ -3769,7 +3774,7 @@ else:
                     pdf.setFillColor('Black')
                     pdf.setFont('Helvetica-Bold',20)
                     pdf.drawString(1*cm,27.2*cm, 'Información sobre Renta Fija')
-                    pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                    pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                     pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                     
                     pdf.drawString(1*cm,25.5*cm,'Resumen de Renta Fija Extranjera')
@@ -3787,7 +3792,7 @@ else:
                         pdf.setFillColor('Black')
                         pdf.setFont('Helvetica-Bold',20)
                         pdf.drawString(1*cm,27.2*cm, f'Rendimientos - Renta Fija Extranjera')
-                        pdf.drawInlineImage('LOGO TRUCCO.png',14*cm,28*cm,width=6*cm, height= 1.5*cm)
+                        pdf.drawInlineImage(str(inputs_path.joinpath("logo-login.png")),14*cm,28*cm,width=6*cm, height= 1.5*cm)
                         pdf.line(1*cm,26.8*cm,A4[0] -1*cm,26.8*cm)
                         
                         filepath= f'{dirG}\\tabla rendimientos Renta Fija Extranjera - {cuenta}.png'
