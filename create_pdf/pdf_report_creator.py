@@ -6,20 +6,22 @@ from reportlab.platypus import PageBreak
 import io
 from PIL import Image as PILImage
 from reportlab.platypus import Spacer
-from create_pdf.aux_functions import merge_pdfs, crear_grafico, add_subtotals, add_totals, get_total_rows
-from create_pdf.plotting_functions import create_grafico_multiple
+from create_pdf.aux_functions import merge_pdfs
+from typing import Literal
 
 def format_number_spanish(number):
     if isinstance(number, int):
         return f"{number:,}".replace(",", ".")
-    else:
+    elif isinstance(number, float):
         formatted = f"{number:,.2f}".rstrip("0").rstrip(".")
         return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+    else:
+        return number
 
 class PDFReport:
     def __init__(self, filename, logo_path, cover_path, page_size=A4):
         self.header_height = 60
-        self.filename = filename
+        self.filename = str(filename)
         self.logo_path = logo_path
         self.page_size = page_size
         self.margins = 40
@@ -36,7 +38,7 @@ class PDFReport:
         self.elements = []
         self.styles = getSampleStyleSheet()
 
-    def add_title(self, title, font_size=18, alignment=0, with_space=True):
+    def add_title(self, title, font_size=18, alignment: Literal[0, 1, 2, 4, "left", "center", "centre", "right", "justify"]=0, with_space=True):
         """Add title to the PDF with optional font size and alignment."""
         if with_space:
             space_after = 20
@@ -54,7 +56,9 @@ class PDFReport:
         title_paragraph = Paragraph(title, title_style)
         self.elements.append(title_paragraph)
 
-    def add_text(self, text, font_size=12, alignment=0, with_space=True, text_color=None, bold=False,  **kwargs):
+    def add_text(self, text, font_size=12,
+                 alignment:Literal[0, 1, 2, 4, "left", "center", "centre", "right", "justify"]=0,
+                 with_space=True, text_color=None, bold=False,  **kwargs):
         """Add plain text to the PDF with optional font size and alignment."""
         text_color = text_color or self.colors[0]
         font = self.font if not bold else self.font + '-Bold'
@@ -97,9 +101,10 @@ class PDFReport:
     def add_df(self, df, bold_rows=None):
         """Add DataFrame as a table to the PDF."""
         df = df.copy()
+        number_cols = df.select_dtypes(include=['number']).columns
         df = df.fillna("-")
         bold_rows = bold_rows or []
-        df[df.select_dtypes(include=['number']).columns] = df.select_dtypes(include=['number']).map(format_number_spanish)
+        df[number_cols] = df[number_cols].map(format_number_spanish)
         table_data = [df.columns.to_list()] + df.values.tolist()
         font_size = 10 if len(df.columns) <= 10 else 8  # Reduce font size if more than 10 columns
 
@@ -196,103 +201,3 @@ class PDFReport:
         """Add header and footer to each page."""
         self.header(canvas, doc)
         self.footer(canvas, doc)
-
-
-
-
-if __name__ == '__main__':
-    # Usage Example
-    import pandas as pd
-    import numpy as np
-
-
-    # Example dataframe with more columns
-    random_data = np.random.randn(200, 3) * 2500 + 2500  # Scale and shift to get values in the range [-5000, 5000]
-    random_data = np.clip(random_data, 0, 5000)  # Clip values to the range [0, 5000]
-    random_data = np.round(random_data).astype(int)  # Round to integers
-    df_ex = pd.DataFrame(random_data, columns=[f'Column{i+1}' for i in range(3)])
-
-    df_tenencia_total = pd.DataFrame({
-        "CLASIFICACION": ["Activos", "Moneda"],
-        "TENENCIA [US$]": [2_978_650.34, 852_460.07]
-    })
-    df_resumen_activos = pd.DataFrame({
-        "CLASIFICACION": [
-            "ETFs",
-            "Renta Fija Extranjera",
-            "Renta Fija Local",
-            "Renta Variable Extranjera",
-            "Renta Variable Local"
-        ],
-        "TENENCIA [US$]": [
-            548_885.19,
-            1_021_795.00,
-            977.95,
-            1_275_936.56,
-            131_055.64,
-        ],
-        "PART. [%]": [18.43, 34.30, 0.03, 42.84, 4.40]
-    })
-
-    n = 50  # Número de filas
-    activos = [f"Activo_{i}" for i in range(n)]
-    tenencias = np.random.randint(1, 1000, size=n)
-    tipo_activo = np.random.choice(["Acción", "Bono", "Fondo", "ETF", "Derivado"], size=n)
-    local_extranjera = np.random.choice(["Local", "Extranjera"], size=n)
-    fija_variable = np.random.choice(["Fija", "Variable"], size=n)
-
-    df_assets = pd.DataFrame({
-        "Activo": activos,
-        "Tenencia": tenencias,
-        "Tipo de Activo": tipo_activo,
-        "Local o Extranjera": local_extranjera,
-        "Fija o Variable": fija_variable
-    })
-    df_assets['Tenencia'] = df_assets['Tenencia'].astype(int)
-    df_assets2 = add_subtotals(df_assets, group_by_column='Tipo de Activo')
-
-    # Create and build the PDF report
-    pdf_report = PDFReport("output_report.pdf", "../inputs/logo-login.png",
-                           cover_path="../inputs/cover.pdf")
-    pdf_report.add_text("Tenencia Total 1174-3219", font_size=24, with_space=False, bold=True)
-    tc = 1228.18
-    tc = format_number_spanish(int(tc))
-    pdf_report.add_text(f"USD/ARS: {tc} - 28/05/2024", font_size=14, with_space=False, alignment=2, text_color=HexColor('#70757A'))
-    pdf_report.add_divider()
-
-
-    pdf_report.add_title("Tenencia Total")
-
-    df_resumen_activos2 = add_totals(df_resumen_activos)
-    pdf_report.add_df(df_resumen_activos2, get_total_rows(df_resumen_activos2))
-
-    pdf_report.add_title("Resumen de Activos")
-    df_resumen_activos2 = add_totals(df_resumen_activos)
-
-    pdf_report.add_df(df_resumen_activos2, get_total_rows(df_resumen_activos2))
-
-    pdf_report.add_text("This is a sample sales report.")
-    pdf_report.add_df(df_assets2, get_total_rows(df_assets2))  # Add the DataFrame
-    fig_ex = create_grafico_multiple(
-        df=df_assets,
-        agg_cols=["Tipo de Activo", "Local o Extranjera", "Fija o Variable"],
-        target_col="Tenencia",
-        grid_size= (4, 2),
-        plot_positions=[(slice(None), 0), (slice(0,2), 1), (slice(2,4), 1)],
-        fig_types=['pie', 'pie', 'pie']
-    )
-    pdf_report.add_chart(fig_ex)  # Add the chart
-
-
-    fig_ex = create_grafico_multiple(
-        df=df_assets,
-        agg_cols=["Activo"],
-        target_col="Tenencia",
-        grid_size= (4,2),
-        plot_positions=[(slice(None), slice(None))],
-        fig_types=['bar']
-
-    )
-    pdf_report.add_chart(fig_ex)  # Add the chart
-
-    pdf_report.build_pdf()
