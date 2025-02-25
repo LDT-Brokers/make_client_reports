@@ -33,6 +33,11 @@ ON g.code = all_assets.code_caja_val
 WHERE q_adj_no_realizado > 0;
 """, db_path=DB_PATH)
 
+df_tenencia.rename({'asset_class': 'Clase', 'ticker_norm': 'Especie',
+                    'precio_prom_compras_no_realizadas': 'Costo', 'price_usd': 'Precio Mercado', 'rend': 'Retorno (%)',
+                    'monto': 'Saldo'}, axis=1, inplace=True)
+df_tenencia = df_tenencia[["client_id", "Clase", "Especie", "Costo", "Precio Mercado", "Retorno (%)", "Saldo"]].copy()
+
 
 tc_df = query_database(query =f"""
 WITH ccl_ars AS (
@@ -40,13 +45,8 @@ WITH ccl_ars AS (
 )
 select close, dt from ccl_ars where dt = (select max(dt) from ccl_ars);
 """, db_path=DB_PATH)
-tc = round(tc_df.iloc[0,0], 1)
 dt_tc = tc_df.iloc[0,1]
-
-df_tenencia.rename({'asset_class': 'Clase', 'ticker_norm': 'Especie',
-                    'precio_prom_compras_no_realizadas': 'Costo', 'price_usd': 'Precio Mercado', 'rend': 'Retorno (%)',
-                    'monto': 'Saldo'}, axis=1, inplace=True)
-df_tenencia = df_tenencia[["client_id", "Clase", "Especie", "Costo", "Precio Mercado", "Retorno (%)", "Saldo"]].copy()
+tc = round(tc_df.iloc[0,0], 1)
 
 
 
@@ -67,7 +67,7 @@ for selected_client in df_tenencia.client_id.unique():
 
     pdf_report.add_title("Tenencia Total")
     df_tenencia_this_client.sort_values(by=tenencia_col, ascending=False, inplace=True)
-    df_tenencia_this_client_wt = add_totals(df_tenencia_this_client, sum_columns=[tenencia_col])
+    df_tenencia_this_client_wt = add_subtotals(df_tenencia_this_client, group_by_column='Clase', sum_columns=[tenencia_col])
     pdf_report.add_df(df_tenencia_this_client_wt, bold_rows=get_total_rows(df_tenencia_this_client_wt))
 
     fig_ex = create_grafico_multiple(
