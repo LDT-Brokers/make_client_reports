@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 from create_pdf.aux_functions import get_colors_from_maps
 import pandas as pd
 from typing import List, Tuple, Union
+from millify import millify
+import matplotlib.ticker as mticker
 
 
 def bar_plot(ax, groups, sq_size):
@@ -20,6 +22,9 @@ def bar_plot(ax, groups, sq_size):
         plt.xticks(rotation=45, ha='right')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+
+    formatter = mticker.FuncFormatter(lambda x, _: millify(x, precision=1))
+    ax.yaxis.set_major_formatter(formatter)
     return ax
 
 
