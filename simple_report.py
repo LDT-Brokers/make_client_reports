@@ -1,16 +1,17 @@
 import pandas as pd
-from pathlib import Path
 from create_pdf.pdf_report_creator import PDFReport
 from create_pdf.aux_functions import  add_subtotals, add_totals, get_total_rows
 from create_pdf.plotting_functions import create_grafico_multiple
 from reportlab.lib.colors import HexColor
 import sqlite3
+from CONFIG import DB_PATH, ASSETS_PATH, OUTPUT_REPORTS_PATH
+from datetime import date
+from tqdm import tqdm
 
-DB_PATH = r'\\10.10.88.21\RecursoCompartido\ArchivosOficina\Desarrollo\bases\my_database.db'
-#DB_PATH = r'C:\Users\feder\PycharmProjects\Precio Promedio de Compra\outputs\my_database.db'
-main_dir_path = Path(__file__).parent
-inputs_path = main_dir_path.joinpath('inputs')
-outputs_path = main_dir_path.joinpath('outputs')
+dt = date.today().strftime("%Y-%m-%d")
+today_report_folder = OUTPUT_REPORTS_PATH.joinpath(dt)
+today_report_folder.mkdir(parents=True, exist_ok=True)
+
 
 def query_database(query: str, db_path: str):
     db_conn = sqlite3.connect(db_path)
@@ -34,9 +35,9 @@ WHERE q_adj_no_realizado > 0;
 """, db_path=DB_PATH)
 
 df_tenencia.rename({'asset_class': 'Clase', 'ticker_norm': 'Especie',
-                    'precio_prom_compras_no_realizadas': 'Costo', 'price_usd': 'Precio Mercado', 'rend': 'Retorno (%)',
-                    'monto': 'Saldo'}, axis=1, inplace=True)
-df_tenencia = df_tenencia[["client_id", "Clase", "Especie", "Costo", "Precio Mercado", "Retorno (%)", "Saldo"]].copy()
+                    'precio_prom_compras_no_realizadas': 'Costo', 'price_usd': 'Precio Mercado', 'rend': 'Retorno [%]',
+                    'monto': 'Saldo [USD]'}, axis=1, inplace=True)
+df_tenencia = df_tenencia[["client_id", "Clase", "Especie", "Costo", "Precio Mercado", "Retorno [%]", "Saldo [USD]"]].copy()
 
 
 tc_df = query_database(query =f"""
@@ -48,18 +49,17 @@ select close, dt from ccl_ars where dt = (select max(dt) from ccl_ars);
 dt_tc = tc_df.iloc[0,1]
 tc = round(tc_df.iloc[0,0], 1)
 
-
-
-for selected_client in df_tenencia.client_id.unique():
+clients = df_tenencia.client_id.unique()
+for selected_client in tqdm(clients):
 
     df_tenencia_this_client = df_tenencia[df_tenencia.client_id==selected_client].copy()
     df_tenencia_this_client.drop(columns=['client_id'], inplace=True)
-    tenencia_col='Saldo'
+    tenencia_col='Saldo [USD]'
 
     pdf_report = PDFReport(
-        filename=outputs_path.joinpath(f"output_report{selected_client}.pdf"),
-        logo_path=inputs_path.joinpath("logo-login.png"),
-        cover_path=inputs_path.joinpath("cover.pdf"))
+        filename=today_report_folder.joinpath(f"output_report_{selected_client}.pdf"),
+        logo_path=ASSETS_PATH.joinpath("logo-login.png"),
+        cover_path=ASSETS_PATH.joinpath("cover.pdf"))
 
     pdf_report.add_text("Tenencia Total", font_size=24, with_space=False, bold=True)
     pdf_report.add_text(f"USD/ARS: {tc} | {dt_tc}", font_size=14, with_space=False, alignment=2, text_color=HexColor('#70757A'))
