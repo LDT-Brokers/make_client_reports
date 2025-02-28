@@ -1,13 +1,16 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image
 from reportlab.platypus import PageBreak
 import io
 from PIL import Image as PILImage
 from reportlab.platypus import Spacer
 from create_pdf.aux_functions import merge_pdfs
 from typing import Literal
+from reportlab.platypus import Paragraph
+from statistics import median
+from reportlab.lib.enums import TA_CENTER  # Import alignment constants
 
 def format_number_spanish(number):
     if isinstance(number, int):
@@ -106,37 +109,51 @@ class PDFReport:
         bold_rows = bold_rows or []
         df[number_cols] = df[number_cols].map(format_number_spanish)
         table_data = [df.columns.to_list()] + df.values.tolist()
-        font_size = 10 if len(df.columns) <= 10 else 8  # Reduce font size if more than 10 columns
+        font_size = 10
 
         page_width, _ = self.page_size
 
 
         df_str = df.astype(str)
         lengths = [[len(str(val)) for val in df_str[col]] for col in df_str.columns]
-        col_lens = [len(c) for c in df_str.columns]
-        modes = [max(length) for length in lengths]
-        modes_2 = [max(c1,c2) for c1,c2 in zip(col_lens, modes)]
-        sum_modes = sum(modes_2)
+        modes = [median(length) for length in lengths]
+        sum_modes = sum(modes)
         total_width = (page_width - 2 * self.margins)
-        col_widths = [ci * total_width / sum_modes for ci in modes_2]
+        col_widths = [ci * total_width / sum_modes for ci in modes]
+
+
+        # Convert all cells to Paragraphs for wrapping, take into account that these settings override any table
+        # setting, so set the parameters here
+        # Define styles for different text elements
+        header_style = getSampleStyleSheet()["Normal"].clone('HeaderStyle')
+        header_style.fontName = self.font + '-Bold'
+        header_style.fontSize = font_size
+        header_style.textColor = self.colors[3]
+        header_style.wordWrap = "CJK"
+        header_style.alignment = TA_CENTER  # Ensure paragraph is center-aligned
+
+        body_style = getSampleStyleSheet()["Normal"].clone('BodyStyle')
+        body_style.fontName = self.font
+        body_style.fontSize = font_size
+        body_style.wordWrap = "CJK"
+        body_style.alignment = TA_CENTER  # Ensure paragraph is center-aligned
+
+        # Apply styles to table data
+        table_data = [
+             [Paragraph(str(cell), header_style) for cell in table_data[0]]  # Apply header style
+                     ] + [
+             [Paragraph(str(cell), body_style) for cell in row] for row in table_data[1:]
+                         # Apply body style
+                     ]
 
         table = Table(table_data, colWidths=col_widths)
         table_style  = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), self.colors[1]),
-            ('TEXTCOLOR', (0, 0), (-1, 0), self.colors[3]),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, self.colors[0]),
-            ('FONTNAME', (0, 0), (-1, 0), self.font + '-Bold'),  # Column headers bold
-            ('FONTNAME', (0, 1), (-1, -1), self.font),
-            ('FONTSIZE', (0, 0), (-1, -1), font_size),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),  # Center the column headers
-            # ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # Align the first column to the left
-
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
         ])
         for row_idx in bold_rows:
-            # Adjust for 1-based index because the header is row 0
             table_style.add('BACKGROUND', (0, row_idx + 1), (-1, row_idx + 1), self.colors[2])
-            #table_style.add('FONTNAME', (0, row_idx + 1), (-1, row_idx + 1), self.font + '-Bold')
 
         table.setStyle(table_style)
         self.elements.append(table)
