@@ -9,8 +9,29 @@ from reportlab.platypus import Spacer
 from create_pdf.aux_functions import merge_pdfs
 from typing import Literal
 from reportlab.platypus import Paragraph
-from statistics import median
+import matplotlib.pyplot as plt
 from reportlab.lib.enums import TA_CENTER  # Import alignment constants
+import numpy as np
+
+
+def adjust_column_widths(df, page_width, margins):
+    num_cols = len(df.columns)
+    base_width = (page_width - 2 * margins) / num_cols  # Equal width per column
+
+    # Compute median text length per column
+    median_lengths = np.array([np.max([len(str(val)) for val in df[col]]) for col in df.columns])
+    norm_lengths = median_lengths / median_lengths.sum()
+
+    # Ensure column widths stay within the defined limits (0.5x to 1.5x of base_width)
+    r = 0.5
+    adjusted_widths = np.clip(norm_lengths * page_width, (1-r) * base_width, (1+r) * base_width)
+
+    # Scale adjusted widths to ensure total width remains within page width
+    scaling_factor = (page_width - 2 * margins) / adjusted_widths.sum()
+    col_widths = adjusted_widths * scaling_factor
+
+    return col_widths.tolist()
+
 
 def format_number_spanish(number):
     if isinstance(number, int):
@@ -115,28 +136,22 @@ class PDFReport:
 
 
         df_str = df.astype(str)
-        lengths = [[len(str(val)) for val in df_str[col]] for col in df_str.columns]
-        modes = [median(length) for length in lengths]
-        sum_modes = sum(modes)
-        total_width = (page_width - 2 * self.margins)
-        col_widths = [ci * total_width / sum_modes for ci in modes]
 
+        col_widths=adjust_column_widths(df_str, page_width, margins=self.margins)
 
         # Convert all cells to Paragraphs for wrapping, take into account that these settings override any table
         # setting, so set the parameters here
         # Define styles for different text elements
         header_style = getSampleStyleSheet()["Normal"].clone('HeaderStyle')
         header_style.fontName = self.font + '-Bold'
-        header_style.fontSize = font_size
         header_style.textColor = self.colors[3]
-        header_style.wordWrap = "CJK"
-        header_style.alignment = TA_CENTER  # Ensure paragraph is center-aligned
 
         body_style = getSampleStyleSheet()["Normal"].clone('BodyStyle')
         body_style.fontName = self.font
-        body_style.fontSize = font_size
-        body_style.wordWrap = "CJK"
-        body_style.alignment = TA_CENTER  # Ensure paragraph is center-aligned
+
+        for st in [header_style, body_style]:
+            st.fontSize = font_size
+            st.alignment = TA_CENTER
 
         # Apply styles to table data
         table_data = [
@@ -213,6 +228,7 @@ class PDFReport:
         """Build and save the PDF document."""
         self.document.build(self.elements, onFirstPage=self._add_header_footer, onLaterPages=self._add_header_footer)
         merge_pdfs(self.cover_path, self.filename, self.filename)
+        plt.close()
 
     def _add_header_footer(self, canvas, doc):
         """Add header and footer to each page."""
