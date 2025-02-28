@@ -15,7 +15,10 @@ def get_cmap(groups):
 
 def get_colors_from_maps(n):
     cmap = get_cmap(n)
-    colors = [cmap(i / (n - 1)) for i in range(n)]  # Evenly spaced
+    if n == 1:
+        colors = [cmap(0.5)]  # Pick the midpoint color
+    else:
+        colors = [cmap(i / (n-1)) for i in range(n)]  # Evenly spaced
     return colors
 
 def merge_pdfs(pdf1, pdf2, output_pdf):
