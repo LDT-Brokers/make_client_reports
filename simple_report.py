@@ -1,6 +1,6 @@
 import pandas as pd
 from create_pdf.pdf_report_creator import PDFReport
-from create_pdf.aux_functions import  add_subtotals, add_totals, get_total_rows
+from create_pdf.aux_functions import  add_subtotals, get_total_rows
 from create_pdf.plotting_functions import create_grafico_multiple
 from reportlab.lib.colors import HexColor
 import sqlite3
@@ -49,12 +49,15 @@ select close, dt from ccl_ars where dt = (select max(dt) from ccl_ars);
 dt_tc = tc_df.iloc[0,1]
 tc = round(tc_df.iloc[0,0], 1)
 
-clients = df_tenencia.client_id.unique()
+tenencia_col='Saldo [USD]'
+
+clients_filtered = df_tenencia.groupby('client_id')[tenencia_col].sum()
+clients = clients_filtered[clients_filtered >= 20000].index
+
 for selected_client in tqdm(clients):
 
     df_tenencia_this_client = df_tenencia[df_tenencia.client_id==selected_client].copy()
     df_tenencia_this_client.drop(columns=['client_id'], inplace=True)
-    tenencia_col='Saldo [USD]'
 
     pdf_report = PDFReport(
         filename=today_report_folder.joinpath(f"output_report_{selected_client}.pdf"),
