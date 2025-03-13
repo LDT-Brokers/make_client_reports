@@ -123,6 +123,7 @@ class ReporteCompleto:
         self.pdf_report.add_divider()
 
     def p_precios(self):
+        self.pdf_report.add_title("Todos los Activos")
         df = self.df_tenencia.sort_values(by=self.tenencia_col, ascending=False).copy()
         df_disp = add_subtotals(df, group_by_column='Clase', sum_columns=[self.tenencia_col])
         df_disp = df_disp[["Clase", "Especie", "Costo", "Precio Mercado", "Retorno [%]", "Saldo [USD]"]].copy()

@@ -12,6 +12,7 @@ from reportlab.platypus import Paragraph
 import matplotlib.pyplot as plt
 from reportlab.lib.enums import TA_CENTER  # Import alignment constants
 import numpy as np
+from reportlab.platypus.flowables import CondPageBreak
 
 
 def rescale_col_widths(col_widths, page_width, margins):
@@ -124,7 +125,9 @@ class PDFReport:
 
     def new_page(self):
         """Add a new page to the PDF."""
-        self.elements.append(PageBreak())
+        # self.elements.append(PageBreak())
+        usable_height = self.page_size[1] - (self.header_height + self.margins)
+        self.elements.append(CondPageBreak(0.9 * usable_height))
 
 
     def add_df(self, df, bold_rows=None, col_widths=None):

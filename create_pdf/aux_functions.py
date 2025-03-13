@@ -35,6 +35,7 @@ def add_totals(df, sum_columns=None):
     df = df.copy()
     df['grouper_col'] = 1
     df = add_subtotals(df, 'grouper_col', sum_columns)
+    df.iloc[:, 0] = df.apply(lambda row: "Total" if row['grouper_col'] != 1 else row.iloc[0], axis=1)
     df.drop('grouper_col', axis=1, inplace=True)
     return df
 
@@ -45,10 +46,6 @@ def add_subtotals(df, group_by_column, sum_columns= None):
     subtotal_df[group_by_column] = subtotal_df[group_by_column].astype(str) + ' (Total)'
     df_with_subtotals = pd.concat([df, subtotal_df], ignore_index=True)
     df_with_subtotals.sort_values(inplace=True, by=[group_by_column, *sum_columns], ascending=[True] + [False] * len(sum_columns))
-    if df_with_subtotals.columns[0] != group_by_column:
-        df_with_subtotals.iloc[:, 0] = df_with_subtotals.apply(
-            lambda row: "Total" if "Total" in str(row[group_by_column]) else row.iloc[0], axis=1
-        )
     if len(sum_columns) == 1:
         df_with_subtotals['Part [%]'] = df_with_subtotals[sum_columns] / df_with_subtotals[sum_columns].sum()* 100 * 2 # add *2 because we are double counting the the total
     return df_with_subtotals
