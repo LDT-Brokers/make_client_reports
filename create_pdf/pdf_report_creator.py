@@ -14,6 +14,15 @@ from reportlab.lib.enums import TA_CENTER  # Import alignment constants
 import numpy as np
 
 
+def rescale_col_widths(col_widths, page_width, margins):
+    if isinstance(col_widths, list):
+        col_widths= np.array(col_widths)
+    # Scale adjusted widths to ensure total width remains within page width
+    scaling_factor = (page_width - 2 * margins) / col_widths.sum()
+    col_widths = col_widths * scaling_factor
+
+    return col_widths.tolist()
+
 def adjust_column_widths(df, page_width, margins):
     num_cols = len(df.columns)
     base_width = (page_width - 2 * margins) / num_cols  # Equal width per column
@@ -23,14 +32,10 @@ def adjust_column_widths(df, page_width, margins):
     norm_lengths = median_lengths / median_lengths.sum()
 
     # Ensure column widths stay within the defined limits (0.5x to 1.5x of base_width)
-    r = 0.5
+    r = 0.35
     adjusted_widths = np.clip(norm_lengths * page_width, (1-r) * base_width, (1+r) * base_width)
 
-    # Scale adjusted widths to ensure total width remains within page width
-    scaling_factor = (page_width - 2 * margins) / adjusted_widths.sum()
-    col_widths = adjusted_widths * scaling_factor
-
-    return col_widths.tolist()
+    return rescale_col_widths(adjusted_widths, page_width, margins)
 
 
 def format_number_spanish(number):
@@ -43,7 +48,7 @@ def format_number_spanish(number):
         return number
 
 class PDFReport:
-    def __init__(self, filename, logo_path, cover_path, page_size=A4):
+    def __init__(self, filename, logo_path, cover_path=None, page_size=A4):
         self.header_height = 60
         self.filename = str(filename)
         self.logo_path = logo_path
@@ -122,7 +127,7 @@ class PDFReport:
         self.elements.append(PageBreak())
 
 
-    def add_df(self, df, bold_rows=None):
+    def add_df(self, df, bold_rows=None, col_widths=None):
         """Add DataFrame as a table to the PDF."""
         df = df.copy()
         number_cols = df.select_dtypes(include=['number']).columns
@@ -137,7 +142,11 @@ class PDFReport:
 
         df_str = df.astype(str)
 
-        col_widths=adjust_column_widths(df_str, page_width, margins=self.margins)
+        if col_widths is None:
+            col_widths=adjust_column_widths(df_str, page_width, margins=self.margins)
+        else:
+            col_widths=rescale_col_widths(col_widths, page_width, self.margins)
+
 
         # Convert all cells to Paragraphs for wrapping, take into account that these settings override any table
         # setting, so set the parameters here
@@ -227,8 +236,9 @@ class PDFReport:
     def build_pdf(self):
         """Build and save the PDF document."""
         self.document.build(self.elements, onFirstPage=self._add_header_footer, onLaterPages=self._add_header_footer)
-        merge_pdfs(self.cover_path, self.filename, self.filename)
-        plt.close()
+        if self.cover_path:
+            merge_pdfs(self.cover_path, self.filename, self.filename)
+        plt.close('all')
 
     def _add_header_footer(self, canvas, doc):
         """Add header and footer to each page."""
