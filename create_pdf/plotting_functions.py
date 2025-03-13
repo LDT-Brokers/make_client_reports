@@ -67,7 +67,7 @@ def create_grafico_multiple(df, agg_cols: List[str], target_col: str, grid_size:
                             plot_positions:List[Tuple[Union[slice, int], Union[slice, int]]], fig_types:List[str]):
     fig = plt.figure(figsize=(10 * grid_size[0], 10 * grid_size[1]))
     sq_size = (grid_size[0] * grid_size[1])
-    new_font_size = sq_size * 4
+    new_font_size = grid_size[0] * 7.5 //1
     plt.rcParams.update({'font.size': new_font_size})
 
 
@@ -81,6 +81,28 @@ def create_grafico_multiple(df, agg_cols: List[str], target_col: str, grid_size:
             ax1 = pie_plot(ax1, groups, sq_size)
         else:
             ax1 = bar_plot(ax1, groups, sq_size)
-        ax1.set_title(f'Distribución de {target_col} por {agg_col}', fontdict={'fontweight': 'bold'})
+        ax1.set_title(f'Distribución de {target_col} por {agg_col}', fontweight='bold')
     plt.tight_layout()
     return fig
+
+
+def get_basic_grid_pos(num_plots):
+    grid_size = None
+    plot_positions = None
+    if num_plots == 1:
+        grid_size = (1, 1)
+        plot_positions = [(0, 0)]
+    elif num_plots == 2:
+        grid_size = (1, 2)
+        plot_positions = [(0, 0), (0, 1)]
+    elif num_plots == 3:
+        grid_size = (4, 4)
+        plot_positions = [(slice(0, 2), slice(0, 2)), (slice(0, 2), slice(2, 4)), (slice(2, 4), slice(1, 3))]
+    elif num_plots == 4:
+        grid_size = (2,2)
+        plot_positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
+    else:
+        print("num_plots invalid")
+
+    return grid_size, plot_positions
+
